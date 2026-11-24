@@ -544,7 +544,7 @@ const ar=(a,p)=>{const r=a.map((v,j)=>({n:"a["+j+"]",v,a:"0x"+(1000+j*4)}));if(p
 P.arr={name:"Array and pointer",code:["int a[3] = {5, 8, 2};","a[1] = 9;","int *p = a;"],steps:[{l:0,st:ar([5,8,2]),n:"An array is boxes side by side. Indexes start at 0. Each int is 4 bytes, so addresses go up by 4."},{l:1,st:ar([5,9,2]),n:"a[1] is the second box. It now holds 9."},{l:2,st:ar([5,9,2],1),n:"An array name is the address of its first box. p points at a[0]."}]};
 /* training lab */
 /* ---- Mini C runner (browser). Supports int/float/char, if, loops, switch, arrays, strings, functions, scanf, printf ---- */
-function runC(src,input){
+function runC(src,input,ask){
  class F{constructor(x){this.f=x}}
  const isF=v=>v instanceof F,val=v=>isF(v)?v.f:v;
  let cl=1;
@@ -667,7 +667,7 @@ function runC(src,input){
   const specs=[...A[0].v.matchAll(/%\*?(\d+)?(?:hh|h|ll|l)?([dfcsiu])/g)];let cnt=0;
   for(let k=0;k<specs.length;k++){const c=specs[k][2],t=A[k+1];if(!t)CE(n.l,"scanf has more % than variables");const rest=input.slice(ip);let mm;
    if(c==="c")mm=rest.match(/^\s*(\S)/);else if(c==="s")mm=rest.match(/^\s*(\S+)/);else if(c==="f")mm=rest.match(/^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/);else mm=rest.match(/^\s*([+-]?\d+)/);
-   if(!mm)return cnt||-1;ip+=mm[0].length;
+   if(!mm){if(ask&&!/\S/.test(rest)){const e=new Error("needs input");e.needInput=true;e.line=n.l;throw e}return cnt||-1}ip+=mm[0].length;
    if(c==="s"){const arr=ev(t.t==="addr"?t.a:t),s=mm[1];if(!Array.isArray(arr)||s.length>=arr.length)CE(n.l,"the input is too long for the string buffer");for(let i=0;i<s.length;i++)arr[i]=s.charCodeAt(i);arr[s.length]=0}
    else{if(t.t!=="addr")CE(n.l,"scanf needs & before the variable, like &x.");store(t.a,c==="c"?mm[1].charCodeAt(0):c==="f"?new F(parseFloat(mm[1])):parseInt(mm[1],10))}cnt++}
   return cnt};
@@ -728,6 +728,7 @@ function runC(src,input){
  call({name:"main",a:[],l:funcs.main.l});
  return{out,err:null};
  }catch(e){
+  if(e.needInput)return{out,err:null,need:true};
   if(e.exit)return{out,err:null};
   if(e.line!==undefined)return{out,err:{line:e.line,msg:e.message,kind:e.kind||"runtime"}};
   return{out,err:{line:0,msg:"Internal error: "+e.message,kind:"internal"}}}}
@@ -1018,11 +1019,17 @@ function asgView(id){const a=(DB.asg||[]).find(x=>x.id===id),bk=()=>{location.ha
  V.innerHTML=hd(a.title)+afiles(a)+`<div class="pc"><p style="white-space:pre-wrap">${esc(a.desc||"")}</p><small class="hint">Up to ${a.max} Assignment XP${a.due?" · due "+new Date(a.due).toLocaleString():""}</small><br><span class="cnt ${a.count!==false?"y":"n"}" style="margin:6px 0 0">${a.count!==false?"⭐ Counts to Assign XP":"Practice only · marks not added to Assign XP"}</span></div>`+
  (locked?`<div class="pc" style="text-align:center"><div class="exs">${s.xp}/${a.max}</div>${s.vd?`<p><b>${s.vd==="Correct"?"✅":s.vd==="Incorrect"?"❌":"🟡"} ${esc(s.vd)}</b></p>`:""}<b>${a.count!==false?"Assignment XP earned":"Score (practice, not added to Assign XP)"}</b>${s.fb?`<p class="hint" style="white-space:pre-wrap">💬 ${esc(s.fb)}</p>`:""}</div>`:"")+
  `<div class="pc"><b>Your answer</b>${window.cfNoPaste&&!ro?`<p class="hint npn">🔒 Paste is turned off. Type your answer yourself.</p>`:""}${window.cfOnePhone&&!ro?`<p class="hint npn">📱 One phone only: you can submit from the first phone you use for this email.</p>`:""}${!locked&&closed?`<p class="hint">${a.status!=="live"?"This assignment is closed.":"The deadline has passed."}</p>`:""}<textarea class="code" id="at" rows="10" wrap="off" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"${ro?" readonly":""} aria-label="Your answer" placeholder="${a.type==="code"?"Write your C code here":"Write your answer here"}">${esc(s?s.text:"")}</textarea>`+
- (a.type==="code"?`<textarea class="code inp" id="ain" rows="2" wrap="off" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="Test input (optional)" aria-label="Test input"></textarea><div class="row"><button class="ghost" id="art">Test run</button></div><pre class="out" id="aout">Press Test run to check your program.</pre>`:"")+
- (ro?"":`<p class="hint" style="margin:12px 0 6px"><b>Rate this assignment (1 to 5)</b></p><div class="row" id="rtr" style="gap:8px;margin:0 0 10px">${[1,2,3,4,5].map(n=>`<button type="button" class="ghost" data-rt="${n}" style="min-width:46px;${s&&s.rate===n?"border-color:var(--o,#d9531e);font-weight:800":""}">${n}</button>`).join("")}</div><div class="row"><button class="b3" id="asb">Final submit</button></div>`)+(s&&!locked?`<p class="hint">Submitted ${ago(s.ts)}. Waiting for your admin to review.</p>`:"")+`</div>`;
+ (a.type==="code"?`<textarea class="code inp" id="ain" rows="2" wrap="off" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="Test input (optional)" aria-label="Test input"></textarea><div class="row"><button class="ghost" id="art">Test run</button></div><pre class="out" id="aout">Press Test run to check your program.</pre><div class="row" id="aq" style="display:none;gap:8px"><input id="aqi" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type input here, then Enter" aria-label="Program input" style="flex:1;min-width:0"><button type="button" class="ghost" id="aqb">Enter</button></div>`:"")+
+ (ro?"":`<div class="row" id="st1"><button class="b3" id="asn">${s?"Next (update answer)":"Next"}</button></div><div id="st2" style="display:none"><p class="hint" style="margin:12px 0 6px"><b>Rate this assignment (1 to 5)</b></p><div class="row" id="rtr" style="gap:8px;margin:0 0 10px">${[1,2,3,4,5].map(n=>`<button type="button" class="ghost" data-rt="${n}" style="min-width:46px;${s&&s.rate===n?"border-color:var(--o,#d9531e);font-weight:800":""}">${n}</button>`).join("")}</div><div class="row"><button class="b3" id="asb">Final submit</button></div></div>`)+(s&&!locked?`<p style="margin-top:12px;padding:10px 12px;border-radius:12px;background:#1f8f55;color:#fff;font-weight:700">✅ Submitted ${ago(s.ts)}. Waiting for your admin to review.</p>`:"")+`</div>`;
  window._hold=ro?null:"#at";$("#bk").onclick=bk;
 V.querySelectorAll("[data-fd]").forEach(b=>b.onclick=()=>fileGet(a.files[+b.dataset.fd],false));V.querySelectorAll("[data-fv]").forEach(b=>b.onclick=()=>fileGet(a.files[+b.dataset.fv],true));
- if(a.type==="code")$("#art").onclick=()=>{const r=runC($("#at").value,$("#ain").value),o=$("#aout");o.className="out"+(r.err?" err":"");o.textContent=r.err?(r.out?r.out+"\n":"")+(r.err.kind==="compile"?"Compile error":"Error")+(r.err.line?" on line "+r.err.line:"")+": "+r.err.msg:(r.out||"(nothing printed)")};
+ if(a.type==="code"){const aq=$("#aq"),aqi=$("#aqi"),show=r=>{const o=$("#aout");o.className="out"+(r.err?" err":"");aq.style.display=r.need?"flex":"none";
+  if(r.need){o.textContent=(r.out||"")+"\n⌨️ The program is waiting for input. Type it below and press Enter.";aqi.focus()}
+  else o.textContent=r.err?(r.out?r.out+"\n":"")+(r.err.kind==="compile"?"Compile error":"Error")+(r.err.line?" on line "+r.err.line:"")+": "+r.err.msg:(r.out||"(nothing printed)")},
+  go=()=>show(runC($("#at").value,$("#ain").value,true)),
+  send=()=>{const v=aqi.value;if(!v.trim()){toast("Type the input first");return}const t=$("#ain");t.value=(t.value&&!/\n$/.test(t.value)?t.value+"\n":t.value)+v;aqi.value="";go()};
+  $("#art").onclick=go;$("#aqb").onclick=send;aqi.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();send()}}};
+ const asn=$("#asn");if(asn)asn.onclick=()=>{const t=$("#at").value.trim();if(!t){toast("Write your answer first");return}if(t.length>6000){toast("Your answer is too long (max 6000 characters)");return}$("#st1").style.display="none";$("#st2").style.display="block";$("#st2").scrollIntoView({behavior:"smooth",block:"center"})};
  let rt=(s&&s.rate)||0;V.querySelectorAll("[data-rt]").forEach(x=>x.onclick=()=>{rt=+x.dataset.rt;V.querySelectorAll("[data-rt]").forEach(y=>{const on=+y.dataset.rt===rt;y.style.borderColor=on?"var(--o,#d9531e)":"";y.style.fontWeight=on?"800":""})});
  const b=$("#asb");if(b)b.onclick=()=>{const t=$("#at").value.trim();if(!t){toast("Write your answer first");return}if(!rt){toast("Tap a rating from 1 to 5 first");return}if(t.length>6000){toast("Your answer is too long (max 6000 characters)");return}
   b.disabled=true;(window.cfSubmitAsg?window.cfSubmitAsg(a,t,rt):Promise.reject()).then(()=>{toast("Submitted ✓");asgView(id)},e=>{b.disabled=false;toast(e&&e.lock?"This email is locked to another phone. Ask your admin to reset it.":"Could not submit. Check your connection.")})}}
