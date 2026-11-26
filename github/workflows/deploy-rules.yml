@@ -1,0 +1,50 @@
+name: Deploy Firebase rules and check site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check that the scripts in index.html and admin.html have no syntax errors
+        run: |
+          node -e "
+          const fs=require('fs');let bad=0;
+          for(const f of ['index.html','admin.html']){
+            if(!fs.existsSync(f))continue;
+            const s=fs.readFileSync(f,'utf8');
+            [...s.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)].filter(m=>!/src=/.test(m[1])).forEach((m,i)=>{
+              fs.writeFileSync('/tmp/'+f+'.'+i+'.mjs',m[2]);
+              try{require('child_process').execSync('node --check /tmp/'+f+'.'+i+'.mjs',{stdio:'pipe'})}
+              catch(e){console.error('Syntax error in',f,'script',i);console.error(String(e.stderr));bad=1}
+            });
+          }
+          process.exit(bad)"
+
+  deploy-rules:
+    needs: check-site
+    if: ${{ hashFiles('firestore.rules') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Write Firebase credentials
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx -y firebase-tools@13 deploy --only firestore:rules --project c-progarmin --non-interactive
