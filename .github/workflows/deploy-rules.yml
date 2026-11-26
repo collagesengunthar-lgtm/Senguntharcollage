@@ -33,7 +33,6 @@ jobs:
 
   deploy-rules:
     needs: check-site
-    if: ${{ hashFiles('firestore.rules') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,4 +46,4 @@ jobs:
       - name: Deploy Firestore rules
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: npx -y firebase-tools@13 deploy --only firestore:rules --project c-progarmin --non-interactive
+        run: npx -y firebase-tools@13 deploy --only firestore:rules --project c-progarmin --non-interactive:
