@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth.uid is string; }
+    function isAdmin() { return signedIn() && ((request.auth.token.email == 'gokulee1144@gmail.com' && request.auth.token.email_verified == true) || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
+
+    match /admins/{id} {
+      allow get: if signedIn() && request.auth.uid == id;
+    }
+    match /adminLogs/{id} {
+      allow read, create: if isAdmin();
+    }
+    match /handles/{id} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if (signedIn() && request.auth.uid == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['suspended', 'ax'])) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    match /posts/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    match /likes/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    match /comments/{id} {
+      allow read: if signedIn();
+      allow update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    match /follows/{id} {
+      allow read: if signedIn();
+      allow delete: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+    }
+    match /notifs/{id} {
+      allow read: if signedIn() && resource.data.toUid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update, delete: if signedIn() && (resource.data.toUid == request.auth.uid || resource.data.fromUid == request.auth.uid);
+    }
+    match /stories/{id} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin();
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+    match /exams/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    match /examResults/{id} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && id == request.resource.data.exam + '_' + request.auth.uid;
+      allow delete: if isAdmin();
+    }
+    match /assignments/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    match /assignmentFiles/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    match /settings/maintenance {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /submissions/{id} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && id == request.resource.data.asg + '_' + request.auth.uid && request.resource.data.keys().hasOnly(['asg', 'asgTitle', 'uid', 'h', 'name', 'text', 'ts', 'max', 'rate']);
+      allow update: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && !('xp' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ts', 'rate']));
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && !('xp' in resource.data));
+    }
+  }
+}
